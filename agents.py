@@ -53,7 +53,7 @@ writer_prompt = ChatPromptTemplate.from_messages([
     ),
 ])
 
-writer_Chain = writer_prompt | llm | StrOutputParser()
+writer_chain = writer_prompt | llm | StrOutputParser()
 
 # Critic Chain
 critic_prompt = ChatPromptTemplate.from_messages([

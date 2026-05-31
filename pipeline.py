@@ -1,6 +1,8 @@
-from agents import build_search_agent, build_reader_agent, writer_Chain, critic_chain
+from agents import build_search_agent, build_reader_agent, writer_chain, critic_chain
+import time
+import httpx
 
-def run_search_pipeline(topic: str) -> dict:
+def run_research_pipeline(topic: str) -> dict:
     state = {}
 
     # search agent working
@@ -37,7 +39,7 @@ def run_search_pipeline(topic: str) -> dict:
 
     #step 3 - writer chain 
 
-    print("\n"+" ="*50)
+    print("\n"+"="*50)
     print("step 3 - Writer is drafting the report ...")
     print("="*50)
 
@@ -59,10 +61,40 @@ def run_search_pipeline(topic: str) -> dict:
     print("step 4 - critic is reviewing the report ")
     print("="*50)
 
-    state["feedback"] = critic_chain.invoke({
-        "report":state['report']
-    })
+    # Call the critic with retries and a graceful fallback if the model
+    # service returns a 429 (capacity exhausted) or other HTTP errors.
+    max_retries = 3
+    backoff = 2
+    feedback = None
 
+    for attempt in range(1, max_retries + 1):
+        try:
+            feedback = critic_chain.invoke({"report": state['report']})
+            break
+        except httpx.HTTPStatusError as e:
+            status = None
+            try:
+                status = e.response.status_code
+            except Exception:
+                pass
+
+            if status == 429:
+                print(f"Service capacity exceeded (429). Attempt {attempt}/{max_retries}.")
+                if attempt < max_retries:
+                    time.sleep(backoff)
+                    backoff *= 2
+                    continue
+                else:
+                    feedback = {
+                        "error": "Service tier capacity exceeded for the model (429). Try again later or switch to another model/service."}
+            else:
+                feedback = {"error": f"HTTP error while calling model: {e}"}
+            break
+        except Exception as e:
+            feedback = {"error": f"Unexpected error while calling critic: {e}"}
+            break
+
+    state["feedback"] = feedback
     print("\n critic report \n", state['feedback'])
 
     return state
