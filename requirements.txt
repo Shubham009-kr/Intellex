@@ -31,6 +31,9 @@ tiktoken>=0.6.0
 # Logging / debugging (optional but recommended)
 rich>=13.7.0
 
+# Web app
+streamlit>=1.58.0
+
 # Retry + robustness
 tenacity>=8.2.0
 
