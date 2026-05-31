@@ -1,0 +1,58 @@
+from langchain.agents import create_agent
+from langchain_mistralai import ChatMistralAI
+from mistralai.client import Mistral
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from tools import web_search, scrape_url
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Model Setup
+# mistral_client = Mistral(api_key=os.getenv("MISTRAL_API_KEY"))
+# mistral_model = MistralChatModel(client=mistral_client, model="mistral-7b-instruct-v0.1.Q4_0.gguf")
+llm = ChatMistralAI(model = "mistral-small-latest", temperature=0)
+
+# 1st Agent: Researcher
+def build_search_agent():
+    return create_agent(
+        model = llm,
+        tools=[web_search],
+    )
+
+# 2nd Agent: Reader | Analyzer
+def build_reader_agent():
+    return create_agent(
+        model = llm,
+        tools = [scrape_url]
+    )
+
+# writer chain
+writer_prompt = ChatPromptTemplate.from_messages([
+    (
+        "system",
+        "You are an expert research writer. Write clear, structured and insightful reports."
+    ),
+    (
+        "human",
+        """Write a detailed research report on the topic below.
+
+            Topic: {topic}
+
+            Research Gathered:
+                {research}
+
+            Structure the report as:
+                - Introduction
+                - Key Findings (minimum 3 well-explained points)
+                - Conclusion
+                - Sources (list all URLs found in the research)
+
+        Be detailed, factual and professional."""
+    ),
+])
+
+writer_Chain = writer_prompt | llm | StrOutputParser()
+
+
